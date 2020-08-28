@@ -6,7 +6,7 @@
 U8X8_SSD1306_128X64_NONAME_SW_I2C u8x8(/* clock=*/ 15, /* data=*/ 4, /* reset=*/ 16);
 
 #define DEBUG 1
-#define START_PIN 2
+#define START_PIN 0
 #define FINISH_PIN 22
 
 long timer = 0;
