@@ -60,8 +60,19 @@ void IRAM_ATTR takeTime4();
 void IRAM_ATTR takeTime5();
 
 /**
+ * Update the display with the current times.
+ */
+void updateDisplayTimes() {
+  char timeString[MAX_STR_LEN];
+  snprintf(timeString,32,"%ldmS",timer1);
+
+  for (int i = ballPosition; i < 5; i++) {
+    u8x8.drawString(1,3+i,timeString);
+  }
+}
+
+/**
  * Setup method is called once at the start.
- * 
  */
 void setup()
 {
@@ -94,11 +105,6 @@ void setup()
 // Main loop. Called repeatedly
 void loop()
 {
-  // Only update the display every 200mS
-  if (millis() - displayTimer > 200) {
-    displayTimer = millis();
-  }
-
   // Start the timer running
   if (start && timerRunningFlag == false && finishTriggered == 0) {
     u8x8.clearLine(3);
@@ -109,53 +115,36 @@ void loop()
 
     timerRunningFlag = true;
     timer = millis();
-
-    // Detach the start interrupt so we ignore the extra messages
-    detachInterrupt(START_PIN);
-  }
-
-  // Can this be moved into the interrupt handler, avoid repeated switch
-  switch (ballPosition) {
-    case 1:
-    detachInterrupt(SENSOR1_PIN);
-    break;
-
-    case 2:
-    detachInterrupt(SENSOR2_PIN);
-    break;
-
-    case 3:
-    detachInterrupt(SENSOR3_PIN);
-    break;
-
-    case 4:
-    detachInterrupt(SENSOR4_PIN);
-    break;
-
-    case 5:
-    detachInterrupt(SENSOR5_PIN);
-    break;
-  }
-
-  //
-  if (finish && timerRunningFlag == true) {
-#if DEBUG
-    Serial.print("Finished : ");
-    Serial.print(millis() - timer);
-    Serial.println("mS");
-#endif
-
-    timerRunningFlag = false;
-    finish = false;
   }
 
   if (timerRunningFlag == true) {
-    char timeString[MAX_STR_LEN];
-    snprintf(timeString,32,"%ldmS",timer1);
+    // Only update the display every 200mS
+    if (millis() - displayTimer > 200) {
+      displayTimer = millis();
 
-    for (int i = ballPosition; i < 5; i++) {
-      u8x8.drawString(1,3+i,timeString);
+      updateDisplayTimes();
     }
+  }
+
+  if (finish && timerRunningFlag == true) {
+    timerRunningFlag = false;
+    finish = false;
+
+    updateDisplayTimes();
+
+#if DEBUG
+    Serial.println("Finished : ");
+    Serial.print(timer1);
+    Serial.println("mS");
+    Serial.print(timer2);
+    Serial.println("mS");
+    Serial.print(timer3);
+    Serial.println("mS");
+    Serial.print(timer4);
+    Serial.println("mS");
+    Serial.print(timer5);
+    Serial.println("mS");
+#endif
   }
 
   if (resetFlag == true) {
@@ -190,6 +179,7 @@ void loop()
  * Interrupt handler for sensor 1
  */
 void IRAM_ATTR takeTime1() {
+  detachInterrupt(SENSOR1_PIN);
   ballPosition = 1;
   timer1 = millis() - timer;
 }
@@ -198,6 +188,7 @@ void IRAM_ATTR takeTime1() {
  * Interrupt handler for sensor 2
  */
 void IRAM_ATTR takeTime2() {
+  detachInterrupt(SENSOR2_PIN);
   ballPosition = 2;
   timer2 = millis() - timer;
 }
@@ -206,6 +197,7 @@ void IRAM_ATTR takeTime2() {
  * Interrupt handler for sensor 3
  */
 void IRAM_ATTR takeTime3() {
+  detachInterrupt(SENSOR3_PIN);
   ballPosition = 3;
   timer3 = millis() - timer;
 }
@@ -214,6 +206,7 @@ void IRAM_ATTR takeTime3() {
  * Interrupt handler for sensor 4
  */
 void IRAM_ATTR takeTime4() {
+  detachInterrupt(SENSOR4_PIN);
   ballPosition = 4;
   timer4 = millis() - timer;
 }
@@ -222,6 +215,7 @@ void IRAM_ATTR takeTime4() {
  * Interrupt handler for sensro 5, this is currently the last sensor
  */
 void IRAM_ATTR takeTime5() {
+  detachInterrupt(SENSOR5_PIN);
   ballPosition = 5;
   timer5 = millis() - timer;
   finish = true;
@@ -231,6 +225,10 @@ void IRAM_ATTR takeTime5() {
  * Interrupt handler for starting the timer when the ball passes it
  */
 void IRAM_ATTR startTimer() {
+  // Detach the start interrupt so we ignore the extra messages
+  // The ball passing the sensor can generate > 100 interrupts
+  detachInterrupt(START_PIN);
+
   startTriggered++;
   start = true;
 }
