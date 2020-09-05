@@ -114,6 +114,7 @@ void loop()
     detachInterrupt(START_PIN);
   }
 
+  // Can this be moved into the interrupt handler, avoid repeated switch
   switch (ballPosition) {
     case 1:
     detachInterrupt(SENSOR1_PIN);
@@ -186,7 +187,7 @@ void loop()
 }
 
 /**
- * Interrupt handler for stopping the timer when the ball passes it
+ * Interrupt handler for sensor 1
  */
 void IRAM_ATTR takeTime1() {
   ballPosition = 1;
@@ -194,7 +195,7 @@ void IRAM_ATTR takeTime1() {
 }
 
 /**
- * Interrupt handler for stopping the timer when the ball passes it
+ * Interrupt handler for sensor 2
  */
 void IRAM_ATTR takeTime2() {
   ballPosition = 2;
@@ -202,7 +203,7 @@ void IRAM_ATTR takeTime2() {
 }
 
 /**
- * Interrupt handler for stopping the timer when the ball passes it
+ * Interrupt handler for sensor 3
  */
 void IRAM_ATTR takeTime3() {
   ballPosition = 3;
@@ -210,7 +211,7 @@ void IRAM_ATTR takeTime3() {
 }
 
 /**
- * Interrupt handler for stopping the timer when the ball passes it
+ * Interrupt handler for sensor 4
  */
 void IRAM_ATTR takeTime4() {
   ballPosition = 4;
@@ -218,7 +219,7 @@ void IRAM_ATTR takeTime4() {
 }
 
 /**
- * Interrupt handler for stopping the timer when the ball passes it
+ * Interrupt handler for sensro 5, this is currently the last sensor
  */
 void IRAM_ATTR takeTime5() {
   ballPosition = 5;
