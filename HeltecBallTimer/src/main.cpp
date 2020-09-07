@@ -10,26 +10,24 @@ U8X8_SSD1306_128X64_NONAME_SW_I2C u8x8(/* clock=*/ 15, /* data=*/ 4, /* reset=*/
 // These define which pins on the ESP32 are used for reading the sensor values
 // Interrupts are used.
 // To support each of the 5 measurements, we need 6 pins, start pins and 5 others
-#define START_PIN 0
-#define SENSOR1_PIN 5
-#define SENSOR2_PIN 18
-#define SENSOR3_PIN 23
-#define SENSOR4_PIN 19
-#define SENSOR5_PIN 22
+#define START_PIN 13
+#define SENSOR1_PIN 12
+#define SENSOR2_PIN 14
+#define SENSOR3_PIN 27
+#define SENSOR4_PIN 26
+#define SENSOR5_PIN 25
 
 #define RESET_PIN 18
+
+#define NUM_SENSORS 6
 
 #define MAX_STR_LEN 32
 
 // Current Position of ball
-unsigned int ballPosition = 0;
+int ballPosition = -1;
 
 // Times for each sensor
-long timer1 = 0;
-long timer2 = 0;
-long timer3 = 0;
-long timer4 = 0;
-long timer5 = 0;
+long timers[NUM_SENSORS - 1];
 
 // Timer for ball drop
 long timer = 0;
@@ -60,13 +58,25 @@ void IRAM_ATTR takeTime4();
 void IRAM_ATTR takeTime5();
 
 /**
- * Update the display with the current times.
+ * Update the display with the current running time.
  */
 void updateDisplayTimes() {
   char timeString[MAX_STR_LEN];
-  snprintf(timeString,32,"%ldmS",timer1);
+  long elapsedTime = millis() - timer;
 
-  for (int i = ballPosition; i < 5; i++) {
+#ifdef DEBUG
+  Serial.print("Running time");
+  Serial.println(timeString);
+#endif
+
+  for (int i = 0; i < ballPosition; i++) {
+    snprintf(timeString,MAX_STR_LEN,"%'ldmS",timers[i]);
+    u8x8.drawString(1,3+i,timeString);
+  }
+
+  snprintf(timeString,MAX_STR_LEN,"%'ldmS",elapsedTime);
+
+  for (int i = ballPosition; i < NUM_SENSORS - 1; i++) {
     u8x8.drawString(1,3+i,timeString);
   }
 }
@@ -85,6 +95,13 @@ void setup()
   u8x8.setFont(u8x8_font_chroma48medium8_r);
 
   // Setup the sensors
+  pinMode(START_PIN, INPUT_PULLUP);
+  pinMode(SENSOR1_PIN, INPUT_PULLUP);
+  pinMode(SENSOR2_PIN, INPUT_PULLUP);
+  pinMode(SENSOR3_PIN, INPUT_PULLUP);
+  pinMode(SENSOR4_PIN, INPUT_PULLUP);
+  pinMode(SENSOR5_PIN, INPUT_PULLUP);
+
   attachInterrupt(digitalPinToInterrupt(START_PIN),startTimer,FALLING);
 
   attachInterrupt(digitalPinToInterrupt(SENSOR1_PIN),takeTime1,FALLING);
@@ -95,6 +112,8 @@ void setup()
 
   pinMode(RESET_PIN, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(RESET_PIN),resetTimer,FALLING);
+
+  memset(timers,0,sizeof(timers));
 
   // Draw the static text on the display
   u8x8.drawString(0,0,"Ball Timer");
@@ -123,6 +142,11 @@ void loop()
       displayTimer = millis();
 
       updateDisplayTimes();
+      
+#if DEBUG
+      Serial.print("Ball Position: ");
+      Serial.println(ballPosition);
+#endif
     }
   }
 
@@ -134,16 +158,10 @@ void loop()
 
 #if DEBUG
     Serial.println("Finished : ");
-    Serial.print(timer1);
-    Serial.println("mS");
-    Serial.print(timer2);
-    Serial.println("mS");
-    Serial.print(timer3);
-    Serial.println("mS");
-    Serial.print(timer4);
-    Serial.println("mS");
-    Serial.print(timer5);
-    Serial.println("mS");
+    for (int i = 0; i < NUM_SENSORS - 1; i++) {
+      Serial.print(timers[i]);
+      Serial.println("mS");
+    }
 #endif
   }
 
@@ -156,7 +174,11 @@ void loop()
     finishTriggered = 0;
     finish = false;
 
+    ballPosition = -1;
+
     timerRunningFlag = false;
+
+    memset(timers,0,sizeof(timers));
     
     u8x8.clearLine(3);
     u8x8.clearLine(4);
@@ -181,7 +203,7 @@ void loop()
 void IRAM_ATTR takeTime1() {
   detachInterrupt(SENSOR1_PIN);
   ballPosition = 1;
-  timer1 = millis() - timer;
+  timers[0] = millis() - timer;
 }
 
 /**
@@ -190,7 +212,7 @@ void IRAM_ATTR takeTime1() {
 void IRAM_ATTR takeTime2() {
   detachInterrupt(SENSOR2_PIN);
   ballPosition = 2;
-  timer2 = millis() - timer;
+  timers[1] = millis() - timer;
 }
 
 /**
@@ -199,7 +221,7 @@ void IRAM_ATTR takeTime2() {
 void IRAM_ATTR takeTime3() {
   detachInterrupt(SENSOR3_PIN);
   ballPosition = 3;
-  timer3 = millis() - timer;
+  timers[2] = millis() - timer;
 }
 
 /**
@@ -208,7 +230,7 @@ void IRAM_ATTR takeTime3() {
 void IRAM_ATTR takeTime4() {
   detachInterrupt(SENSOR4_PIN);
   ballPosition = 4;
-  timer4 = millis() - timer;
+  timers[3] = millis() - timer;
 }
 
 /**
@@ -217,7 +239,7 @@ void IRAM_ATTR takeTime4() {
 void IRAM_ATTR takeTime5() {
   detachInterrupt(SENSOR5_PIN);
   ballPosition = 5;
-  timer5 = millis() - timer;
+  timers[4] = millis() - timer;
   finish = true;
 }
 
@@ -229,6 +251,7 @@ void IRAM_ATTR startTimer() {
   // The ball passing the sensor can generate > 100 interrupts
   detachInterrupt(START_PIN);
 
+  ballPosition = 0;
   startTriggered++;
   start = true;
 }
