@@ -5,7 +5,7 @@
 // the OLED used
 U8X8_SSD1306_128X64_NONAME_SW_I2C u8x8(/* clock=*/ 15, /* data=*/ 4, /* reset=*/ 16);
 
-#define DEBUG 0
+#define DEBUG 1
 
 // These define which pins on the ESP32 are used for reading the sensor values
 // Interrupts are used.
@@ -62,23 +62,55 @@ void IRAM_ATTR takeTime5();
  */
 void updateDisplayTimes() {
   char timeString[MAX_STR_LEN];
-  long elapsedTime = millis() - timer;
-
-#ifdef DEBUG
-  Serial.print("Running time");
-  Serial.println(timeString);
-#endif
 
   for (int i = 0; i < ballPosition; i++) {
     snprintf(timeString,MAX_STR_LEN,"%'ldmS",timers[i]);
     u8x8.drawString(1,3+i,timeString);
   }
 
+  long elapsedTime = millis() - timer;
   snprintf(timeString,MAX_STR_LEN,"%'ldmS",elapsedTime);
 
   for (int i = ballPosition; i < NUM_SENSORS - 1; i++) {
     u8x8.drawString(1,3+i,timeString);
   }
+}
+
+/**
+ * Reset to startup settings
+ */
+void reset() {
+  #if DEBUG
+  Serial.println("Reset occurred");
+  #endif
+
+  startTriggered = 0;
+  start = false;
+  finishTriggered = 0;
+  finish = false;
+
+  ballPosition = -1;
+
+  timerRunningFlag = false;
+
+  memset(timers,0,sizeof(timers));
+  
+  u8x8.clearLine(3);
+  u8x8.clearLine(4);
+  u8x8.clearLine(5);
+  u8x8.clearLine(6);
+  u8x8.clearLine(7);
+
+  // Re attach the start interrupt
+  attachInterrupt(digitalPinToInterrupt(RESET_PIN),resetTimer,FALLING);
+  attachInterrupt(digitalPinToInterrupt(START_PIN),startTimer,FALLING);
+  attachInterrupt(digitalPinToInterrupt(SENSOR1_PIN),takeTime1,FALLING);
+  attachInterrupt(digitalPinToInterrupt(SENSOR2_PIN),takeTime2,FALLING);
+  attachInterrupt(digitalPinToInterrupt(SENSOR3_PIN),takeTime3,FALLING);
+  attachInterrupt(digitalPinToInterrupt(SENSOR4_PIN),takeTime4,FALLING);
+  attachInterrupt(digitalPinToInterrupt(SENSOR5_PIN),takeTime5,FALLING);
+  
+  resetFlag = false;
 }
 
 /**
@@ -102,23 +134,14 @@ void setup()
   pinMode(SENSOR4_PIN, INPUT_PULLUP);
   pinMode(SENSOR5_PIN, INPUT_PULLUP);
 
-  attachInterrupt(digitalPinToInterrupt(START_PIN),startTimer,FALLING);
-
-  attachInterrupt(digitalPinToInterrupt(SENSOR1_PIN),takeTime1,FALLING);
-  attachInterrupt(digitalPinToInterrupt(SENSOR2_PIN),takeTime2,FALLING);
-  attachInterrupt(digitalPinToInterrupt(SENSOR3_PIN),takeTime3,FALLING);
-  attachInterrupt(digitalPinToInterrupt(SENSOR4_PIN),takeTime4,FALLING);
-  attachInterrupt(digitalPinToInterrupt(SENSOR5_PIN),takeTime5,FALLING);
-
   pinMode(RESET_PIN, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(RESET_PIN),resetTimer,FALLING);
-
-  memset(timers,0,sizeof(timers));
 
   // Draw the static text on the display
   u8x8.drawString(0,0,"Ball Timer");
   u8x8.drawString(0,1,"----------");
   displayTimer = millis();
+
+  reset();
 }
 
 // Main loop. Called repeatedly
@@ -166,34 +189,7 @@ void loop()
   }
 
   if (resetFlag == true) {
-    #if DEBUG
-    Serial.println("Reset occurred");
-    #endif
-    startTriggered = 0;
-    start = false;
-    finishTriggered = 0;
-    finish = false;
-
-    ballPosition = -1;
-
-    timerRunningFlag = false;
-
-    memset(timers,0,sizeof(timers));
-    
-    u8x8.clearLine(3);
-    u8x8.clearLine(4);
-    u8x8.clearLine(5);
-    u8x8.clearLine(6);
-    u8x8.clearLine(7);
-
-    // Re attach the start interrupt
-    attachInterrupt(digitalPinToInterrupt(START_PIN),startTimer,FALLING);
-    attachInterrupt(digitalPinToInterrupt(SENSOR1_PIN),takeTime1,FALLING);
-    attachInterrupt(digitalPinToInterrupt(SENSOR2_PIN),takeTime2,FALLING);
-    attachInterrupt(digitalPinToInterrupt(SENSOR3_PIN),takeTime3,FALLING);
-    attachInterrupt(digitalPinToInterrupt(SENSOR4_PIN),takeTime4,FALLING);
-    attachInterrupt(digitalPinToInterrupt(SENSOR5_PIN),takeTime5,FALLING);
-    resetFlag = false;
+    reset();
   }
 }
 
@@ -260,5 +256,6 @@ void IRAM_ATTR startTimer() {
  * Interrupt handler for resetting the timer
  */
 void IRAM_ATTR resetTimer() {
+  detachInterrupt(RESET_PIN);
   resetFlag = true;
 }
